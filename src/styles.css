@@ -45,6 +45,14 @@ body {
   padding: 16px;
 }
 
+
+.details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .metadata-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(200px, 1fr));

@@ -20,9 +20,18 @@ function formatInLimit(inLimit: boolean | null): string {
   return inLimit ? 'Pass' : 'Fail';
 }
 
+function truncateName(name: string | undefined): string {
+  if (!name) {
+    return '-';
+  }
+
+  return name.length > 30 ? `${name.slice(0, 30)}…` : name;
+}
+
 export default function App() {
   const [files, setFiles] = useState<LoadedCsvFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   const activeFile = useMemo(
     () => files.find((file) => file.id === activeFileId) ?? null,
@@ -89,39 +98,52 @@ export default function App() {
           <p>Load one or more CSV files to view parsed data.</p>
         ) : (
           <>
-            <section>
-              <h2>Metadata</h2>
-              <div className="metadata-grid">
-                <div>
-                  <strong>serialNumber:</strong> {activeFile.parsed.meta.serialNumber ?? '-'}
-                </div>
-                <div>
-                  <strong>result:</strong> {activeFile.parsed.meta.result ?? '-'}
-                </div>
-                <div>
-                  <strong>stationId:</strong> {activeFile.parsed.meta.stationId ?? '-'}
-                </div>
-                <div>
-                  <strong>date:</strong> {activeFile.parsed.meta.date ?? '-'}
-                </div>
-                <div>
-                  <strong>time:</strong> {activeFile.parsed.meta.time ?? '-'}
-                </div>
-              </div>
-            </section>
+            <label className="details-toggle">
+              <input
+                type="checkbox"
+                checked={showDetails}
+                onChange={(event) => setShowDetails(event.target.checked)}
+              />
+              <span>Show details (Metadata & Warnings)</span>
+            </label>
 
-            <section>
-              <h2>Warnings</h2>
-              {activeFile.parsed.warnings.length === 0 ? (
-                <p>None</p>
-              ) : (
-                <ul>
-                  {activeFile.parsed.warnings.map((warning, index) => (
-                    <li key={`${warning}-${index}`}>{warning}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {showDetails && (
+              <>
+                <section>
+                  <h2>Metadata</h2>
+                  <div className="metadata-grid">
+                    <div>
+                      <strong>serialNumber:</strong> {activeFile.parsed.meta.serialNumber ?? '-'}
+                    </div>
+                    <div>
+                      <strong>result:</strong> {activeFile.parsed.meta.result ?? '-'}
+                    </div>
+                    <div>
+                      <strong>stationId:</strong> {activeFile.parsed.meta.stationId ?? '-'}
+                    </div>
+                    <div>
+                      <strong>date:</strong> {activeFile.parsed.meta.date ?? '-'}
+                    </div>
+                    <div>
+                      <strong>time:</strong> {activeFile.parsed.meta.time ?? '-'}
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <h2>Warnings</h2>
+                  {activeFile.parsed.warnings.length === 0 ? (
+                    <p>None</p>
+                  ) : (
+                    <ul>
+                      {activeFile.parsed.warnings.map((warning, index) => (
+                        <li key={`${warning}-${index}`}>{warning}</li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </>
+            )}
 
             <section>
               <h2>Numeric tests (value != null)</h2>
@@ -142,16 +164,19 @@ export default function App() {
                       <td colSpan={6}>No numeric tests found.</td>
                     </tr>
                   ) : (
-                    numericTests.map((test, index) => (
-                      <tr key={`${test.tsName ?? 'row'}-${index}`}>
-                        <td>{test.tsName ?? '-'}</td>
-                        <td>{test.value ?? '-'}</td>
-                        <td>{test.lowerLimit ?? '-'}</td>
-                        <td>{test.upperLimit ?? '-'}</td>
-                        <td>{test.unit ?? '-'}</td>
-                        <td>{formatInLimit(test.inLimit)}</td>
-                      </tr>
-                    ))
+                    numericTests.map((test, index) => {
+                      const fullName = test.tsName ?? '-';
+                      return (
+                        <tr key={`${test.tsName ?? 'row'}-${index}`}>
+                          <td title={fullName}>{truncateName(test.tsName)}</td>
+                          <td>{test.value ?? '-'}</td>
+                          <td>{test.lowerLimit ?? '-'}</td>
+                          <td>{test.upperLimit ?? '-'}</td>
+                          <td>{test.unit ?? '-'}</td>
+                          <td>{formatInLimit(test.inLimit)}</td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
