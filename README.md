@@ -1,47 +1,55 @@
 # CSV Data Viewer
 
-## Purpose
-Web application for viewing multiple CSV measurement result files.
+A minimal Vite + React + TypeScript web app for loading and inspecting multiple semicolon-separated CSV measurement files in the browser.
+
+## Features
+- Upload multiple `.csv` files via the browser.
+- Parse each file client-side using `parseCsvText` from `src/lib/parser/parseCsvFile.ts`.
+- Sidebar with loaded filenames and click-to-select active file.
+- Main view with selected file metadata:
+  - `serialNumber`
+  - `result`
+  - `stationId`
+  - `date`
+  - `time`
+- Table of numeric tests showing:
+  - `tsName`
+  - `value`
+  - `lowerLimit`
+  - `upperLimit`
+  - `unit`
+  - `inLimit`
 
 ## CSV Format
 - Semicolon (`;`) delimited.
 - Two sections separated by an empty line:
+  1. Metadata table (single row)
+  2. Test results table
 
-1. Metadata table (single row)
-2. Test results table
-
-## Requirements
-- Load multiple CSV files.
-- Switch between them.
-- Visualize numeric test values against `LowerLimit` and `UpperLimit`.
-- Highlight out-of-limit values.
-
-## Parser layer
-This repository includes a TypeScript parser module:
+## Parser
+Parser implementation is in:
 - `src/lib/parser/parseCsvFile.ts`
-- exported function: `parseCsvText(fileName, text)`
 
-It handles:
-- UTF-8 BOM stripping.
-- EOL normalization (`CRLF`/`CR` -> `LF`).
-- First blank-line section split with fallback behavior.
-- Semicolon CSV parsing.
-- Derived fields: `isNumericValue`, `hasAnyLimit`, `inLimit`.
+It includes robust handling for BOM, line ending normalization, missing separator fallback, and numeric/limit derivations.
 
-## Setup
+## Getting started
 ```bash
 npm install
 ```
 
-## Run tests
+## Run the web app
 ```bash
-npm test
+npm run dev
 ```
 
-## Type-check/build
+Open the local URL printed by Vite (usually `http://localhost:5173`).
+
+## Build
 ```bash
 npm run build
 ```
 
-## Current Status
-Parser foundation and tests are in place. UI implementation is not scaffolded yet.
+## Test
+```bash
+npm test
+```
