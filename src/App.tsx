@@ -8,8 +8,16 @@ interface LoadedCsvFile {
   parsed: ParsedCsvFile;
 }
 
-function isNumericTest(test: TestRow): boolean {
-  return test.value !== null || test.lowerLimit !== null || test.upperLimit !== null;
+function isNumericValueTest(test: TestRow): boolean {
+  return test.value !== null;
+}
+
+function formatInLimit(inLimit: boolean | null): string {
+  if (inLimit === null) {
+    return '-';
+  }
+
+  return inLimit ? 'Pass' : 'Fail';
 }
 
 export default function App() {
@@ -22,48 +30,46 @@ export default function App() {
   );
 
   const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    const incomingFiles = Array.from(event.target.files ?? []);
-
-    if (incomingFiles.length === 0) {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (selectedFiles.length === 0) {
       return;
     }
 
     const parsedFiles = await Promise.all(
-      incomingFiles.map(async (file, index) => {
+      selectedFiles.map(async (file, index) => {
         const text = await file.text();
-        const parsed = parseCsvText(file.name, text);
-
         return {
           id: `${Date.now()}-${index}-${file.name}`,
           fileName: file.name,
-          parsed
+          parsed: parseCsvText(file.name, text)
         } satisfies LoadedCsvFile;
       })
     );
 
     setFiles((previous) => {
       const next = [...previous, ...parsedFiles];
-      if (!activeFileId && next.length > 0) {
+      if (activeFileId === null && next.length > 0) {
         setActiveFileId(next[0].id);
       }
       return next;
     });
 
-    if (!activeFileId && parsedFiles.length > 0) {
-      setActiveFileId(parsedFiles[0].id);
-    }
-
     event.target.value = '';
   };
 
-  const numericTests = (activeFile?.parsed.tests ?? []).filter(isNumericTest);
+  const numericTests = (activeFile?.parsed.tests ?? []).filter(isNumericValueTest);
 
   return (
     <div className="layout">
       <aside className="sidebar">
-        <h2>Loaded Files</h2>
-        <input type="file" accept=".csv" multiple onChange={handleFilesSelected} />
-        <ul>
+        <h2>Files</h2>
+
+        <label className="file-control">
+          <span>Load CSV files</span>
+          <input type="file" multiple accept=".csv" onChange={handleFilesSelected} />
+        </label>
+
+        <ul className="file-list">
           {files.map((file) => (
             <li key={file.id}>
               <button
@@ -79,8 +85,8 @@ export default function App() {
       </aside>
 
       <main className="main">
-        {!activeFile ? (
-          <p>Upload one or more CSV files to start.</p>
+        {activeFile === null ? (
+          <p>Load one or more CSV files to view parsed data.</p>
         ) : (
           <>
             <section>
@@ -105,33 +111,47 @@ export default function App() {
             </section>
 
             <section>
-              <h2>Numeric Tests</h2>
+              <h2>Warnings</h2>
+              {activeFile.parsed.warnings.length === 0 ? (
+                <p>None</p>
+              ) : (
+                <ul>
+                  {activeFile.parsed.warnings.map((warning, index) => (
+                    <li key={`${warning}-${index}`}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section>
+              <h2>Numeric tests (value != null)</h2>
               <table>
                 <thead>
                   <tr>
-                    <th>tsName</th>
-                    <th>value</th>
-                    <th>lowerLimit</th>
-                    <th>upperLimit</th>
-                    <th>unit</th>
+                    <th>TsName</th>
+                    <th>Value</th>
+                    <th>LowerLimit</th>
+                    <th>UpperLimit</th>
+                    <th>Unit</th>
                     <th>inLimit</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {numericTests.map((test, index) => (
-                    <tr key={`${test.tsName ?? 'row'}-${index}`}>
-                      <td>{test.tsName ?? '-'}</td>
-                      <td>{test.value ?? '-'}</td>
-                      <td>{test.lowerLimit ?? '-'}</td>
-                      <td>{test.upperLimit ?? '-'}</td>
-                      <td>{test.unit ?? '-'}</td>
-                      <td>{test.inLimit === null ? '-' : test.inLimit ? 'Pass' : 'Fail'}</td>
-                    </tr>
-                  ))}
-                  {numericTests.length === 0 && (
+                  {numericTests.length === 0 ? (
                     <tr>
                       <td colSpan={6}>No numeric tests found.</td>
                     </tr>
+                  ) : (
+                    numericTests.map((test, index) => (
+                      <tr key={`${test.tsName ?? 'row'}-${index}`}>
+                        <td>{test.tsName ?? '-'}</td>
+                        <td>{test.value ?? '-'}</td>
+                        <td>{test.lowerLimit ?? '-'}</td>
+                        <td>{test.upperLimit ?? '-'}</td>
+                        <td>{test.unit ?? '-'}</td>
+                        <td>{formatInLimit(test.inLimit)}</td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
