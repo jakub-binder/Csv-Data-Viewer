@@ -137,8 +137,8 @@ export function parseCsvText(fileName: string, text: string): ParsedCsvFile {
     testLines = lines.slice(separatorIndex + 1).filter((line) => line.trim().length > 0);
   } else {
     warnings.push(`${fileName}: no blank separator line found; applied positional fallback split.`);
-    metaLines = lines.slice(0, 2);
-    testLines = lines.slice(2).filter((line) => line.trim().length > 0);
+    metaLines = [lines[0] ?? '', lines[1] ?? ''];
+    testLines = lines.slice(2);
   }
 
   if (metaLines.length < 2) {
