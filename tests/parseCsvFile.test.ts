@@ -32,7 +32,13 @@ describe('parseCsvText using sample-data files', () => {
 
   it('handles BOM and no-separator fallback behavior', () => {
     const text = readFileSync(join(sampleDir, sampleFiles[0]), 'utf8');
-    const withoutSeparator = text.replace(/\r?\n\s*\r?\n/, '\n');
+    const normalizedText = text.replace(/\r\n/g, '\n');
+    const lines = normalizedText.split('\n');
+    const firstBlankSeparatorIndex = lines.findIndex((line) => line.trim() === '');
+    const withoutSeparator =
+      firstBlankSeparatorIndex >= 0
+        ? [...lines.slice(0, firstBlankSeparatorIndex), ...lines.slice(firstBlankSeparatorIndex + 1)].join('\n')
+        : normalizedText;
     const bomPrefixed = `\uFEFF${withoutSeparator}`;
 
     const parsed = parseCsvText(`bom-${sampleFiles[0]}`, bomPrefixed);
