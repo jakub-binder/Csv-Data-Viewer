@@ -128,7 +128,13 @@ export function parseCsvText(fileName: string, text: string): ParsedCsvFile {
   const normalized = normalizeInput(text);
   const lines = normalized.split('\n');
 
-  const separatorIndex = lines.findIndex((line) => line.trim() === '');
+  const separatorIndex = lines.findIndex((line, index) => {
+    if (line.trim() !== '') {
+      return false;
+    }
+
+    return lines.slice(index + 1).some((candidate) => candidate.trim().length > 0);
+  });
   let metaLines: string[];
   let testLines: string[];
 
