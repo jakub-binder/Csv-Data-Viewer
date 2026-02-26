@@ -1,0 +1,17 @@
+{
+  "name": "csv-data-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "csv-parse": "^5.6.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
