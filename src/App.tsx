@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
-import type { ParsedCsvFile, TestRow } from './lib/parser/parseCsvFile';
-import { parseCsvText } from './lib/parser/parseCsvFile';
+import type { ParsedCsvFile, TestRow } from './lib/parser/normalize';
+import { parseCsvTextBrowser } from './lib/parser/parseCsvBrowser';
 
 interface LoadedCsvFile {
   id: string;
@@ -41,7 +41,7 @@ export default function App() {
         return {
           id: `${Date.now()}-${index}-${file.name}`,
           fileName: file.name,
-          parsed: parseCsvText(file.name, text)
+          parsed: parseCsvTextBrowser(file.name, text)
         } satisfies LoadedCsvFile;
       })
     );
