@@ -1,34 +1,29 @@
 # CSV Data Viewer
 
-## Purpose
-Web application for viewing multiple CSV measurement result files.
+A minimal Vite + React + TypeScript web app for loading and inspecting semicolon-separated CSV measurement files in the browser.
 
-## CSV Format
-- Semicolon (`;`) delimited.
-- Two sections separated by an empty line:
+## Features
+- Load multiple `.csv` files with a **Load CSV files** control.
+- Parse each uploaded file client-side using `parseCsvTextBrowser` from `src/lib/parser/parseCsvBrowser.ts` (PapaParse-based, browser-safe).
+- Keep parsed files in memory and switch active file from a left-side filename list.
+- Show selected file metadata (`serialNumber`, `result`, `stationId`, `date`, `time`).
+- Show parser warnings (if present).
+- Show a numeric tests table for rows where `value != null` with columns:
+  - `TsName`
+  - `Value`
+  - `LowerLimit`
+  - `UpperLimit`
+  - `Unit`
+  - `inLimit`
 
-1. Metadata table (single row)
-2. Test results table
+## Parser architecture
+- Shared normalization and derived-field logic: `src/lib/parser/normalize.ts`
+- Node parser (tests / Node runtime): `src/lib/parser/parseCsvFile.ts` using `csv-parse/sync`
+- Browser parser (Vite React app): `src/lib/parser/parseCsvBrowser.ts` using `papaparse`
 
-## Requirements
-- Load multiple CSV files.
-- Switch between them.
-- Visualize numeric test values against `LowerLimit` and `UpperLimit`.
-- Highlight out-of-limit values.
+This avoids Node-only globals like `Buffer` in the browser app while keeping Node tests working.
 
-## Parser layer
-This repository includes a TypeScript parser module:
-- `src/lib/parser/parseCsvFile.ts`
-- exported function: `parseCsvText(fileName, text)`
-
-It handles:
-- UTF-8 BOM stripping.
-- EOL normalization (`CRLF`/`CR` -> `LF`).
-- First blank-line section split with fallback behavior.
-- Semicolon CSV parsing.
-- Derived fields: `isNumericValue`, `hasAnyLimit`, `inLimit`.
-
-## Setup
+## Install
 ```bash
 npm install
 ```
@@ -38,10 +33,9 @@ npm install
 npm test
 ```
 
-## Type-check/build
+## Run app
 ```bash
-npm run build
+npm run dev
 ```
 
-## Current Status
-Parser foundation and tests are in place. UI implementation is not scaffolded yet.
+Then open the URL printed by Vite (typically `http://localhost:5173`).

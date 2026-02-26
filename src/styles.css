@@ -1,0 +1,73 @@
+:root {
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid #ddd;
+  padding: 16px;
+}
+
+.file-control {
+  display: grid;
+  gap: 8px;
+}
+
+.file-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.file-list li + li {
+  margin-top: 8px;
+}
+
+.file-list button {
+  width: 100%;
+  text-align: left;
+}
+
+.file-list button.active {
+  font-weight: bold;
+}
+
+.main {
+  padding: 16px;
+}
+
+
+.details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  text-align: left;
+}
