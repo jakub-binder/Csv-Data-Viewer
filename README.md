@@ -31,11 +31,26 @@ This avoids Node-only globals like `Buffer` in the browser app while keeping Nod
 npm install
 ```
 
-## Run dev server
+## Web development
 ```bash
 npm run dev
 ```
 Then open the URL printed by Vite (typically `http://localhost:5173`).
+
+## Electron development
+```bash
+npm run electron:dev
+```
+This starts the Vite dev server and launches Electron pointed at `http://localhost:5173`.
+
+## Build portable Windows app
+```bash
+npm run electron:build
+```
+This builds the web app, compiles the Electron main process, and packages a Windows portable executable.
+
+Output files are written to:
+- `release/`
 
 ## Run tests
 ```bash
