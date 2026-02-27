@@ -8,8 +8,6 @@ interface LoadedCsvFile {
   parsed: ParsedCsvFile;
 }
 
-type MeasurementSelectionByFile = Record<string, string[]>;
-
 function isNumericValueTest(test: TestRow): boolean {
   return test.value !== null;
 }
@@ -34,12 +32,22 @@ function truncateName(name: string | undefined): string {
   return name.length > 30 ? `${name.slice(0, 30)}…` : name;
 }
 
+function collectUniqueNumericTsNames(files: LoadedCsvFile[]): Set<string> {
+  return new Set(
+    files.flatMap((file) =>
+      file.parsed.tests
+        .filter(isNumericValueTest)
+        .map(getNormalizedTsName)
+        .filter((tsName) => tsName.length > 0)
+    )
+  );
+}
+
 export default function App() {
   const [files, setFiles] = useState<LoadedCsvFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [measurementSelections, setMeasurementSelections] =
-    useState<MeasurementSelectionByFile>({});
+  const [selectedTsNames, setSelectedTsNames] = useState<string[]>([]);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [filterSearch, setFilterSearch] = useState('');
   const [draftSelection, setDraftSelection] = useState<string[]>([]);
@@ -48,6 +56,9 @@ export default function App() {
     () => files.find((file) => file.id === activeFileId) ?? null,
     [files, activeFileId]
   );
+
+  const allTsNames = useMemo(() => Array.from(collectUniqueNumericTsNames(files)), [files]);
+  const allTsNamesSet = useMemo(() => new Set(allTsNames), [allTsNames]);
 
   const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -66,6 +77,9 @@ export default function App() {
       })
     );
 
+    const knownTsNames = collectUniqueNumericTsNames(files);
+    const newTsNames = collectUniqueNumericTsNames(parsedFiles);
+
     setFiles((previous) => {
       const next = [...previous, ...parsedFiles];
       if (activeFileId === null && next.length > 0) {
@@ -74,54 +88,23 @@ export default function App() {
       return next;
     });
 
-    setMeasurementSelections((previous) => {
-      const next = { ...previous };
+    setSelectedTsNames((previous) => {
+      const next = new Set(previous);
 
-      for (const file of parsedFiles) {
-        if (next[file.fileName] !== undefined) {
-          continue;
+      for (const tsName of newTsNames) {
+        if (!knownTsNames.has(tsName)) {
+          next.add(tsName);
         }
-
-        const tsNames = Array.from(
-          new Set(
-            file.parsed.tests
-              .filter(isNumericValueTest)
-              .map(getNormalizedTsName)
-              .filter((tsName) => tsName.length > 0)
-          )
-        );
-
-        next[file.fileName] = tsNames;
       }
 
-      return next;
+      return Array.from(next);
     });
 
     event.target.value = '';
   };
 
   const numericTests = (activeFile?.parsed.tests ?? []).filter(isNumericValueTest);
-  const activeFileTsNames = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          numericTests
-            .map(getNormalizedTsName)
-            .filter((tsName) => tsName.length > 0)
-        )
-      ),
-    [numericTests]
-  );
-
-  const activeFileSelection = useMemo(() => {
-    if (activeFile === null) {
-      return [];
-    }
-
-    return measurementSelections[activeFile.fileName] ?? activeFileTsNames;
-  }, [activeFile, activeFileTsNames, measurementSelections]);
-
-  const selectedTsNameSet = useMemo(() => new Set(activeFileSelection), [activeFileSelection]);
+  const selectedTsNameSet = useMemo(() => new Set(selectedTsNames), [selectedTsNames]);
 
   const filteredNumericTests = useMemo(
     () =>
@@ -135,11 +118,11 @@ export default function App() {
   const visibleTsNames = useMemo(() => {
     const normalizedSearch = filterSearch.trim().toLowerCase();
     if (normalizedSearch.length === 0) {
-      return activeFileTsNames;
+      return allTsNames;
     }
 
-    return activeFileTsNames.filter((tsName) => tsName.toLowerCase().includes(normalizedSearch));
-  }, [activeFileTsNames, filterSearch]);
+    return allTsNames.filter((tsName) => tsName.toLowerCase().includes(normalizedSearch));
+  }, [allTsNames, filterSearch]);
 
   useEffect(() => {
     if (!isFilterModalOpen) {
@@ -159,18 +142,13 @@ export default function App() {
   }, [isFilterModalOpen]);
 
   const openFilterModal = () => {
-    setDraftSelection(activeFileSelection);
+    setDraftSelection(selectedTsNames.filter((tsName) => allTsNamesSet.has(tsName)));
     setFilterSearch('');
     setIsFilterModalOpen(true);
   };
 
   const applyDraftSelection = () => {
-    if (activeFile !== null) {
-      setMeasurementSelections((previous) => ({
-        ...previous,
-        [activeFile.fileName]: draftSelection
-      }));
-    }
+    setSelectedTsNames(draftSelection.filter((tsName) => allTsNamesSet.has(tsName)));
     setIsFilterModalOpen(false);
   };
 
@@ -261,7 +239,7 @@ export default function App() {
               <div className="section-header">
                 <h2>Numeric tests (value != null)</h2>
                 <button type="button" onClick={openFilterModal}>
-                  Filter measurements…
+                  Filter measurements (global)…
                 </button>
               </div>
               <table>
@@ -303,7 +281,7 @@ export default function App() {
               <div className="modal-overlay" onClick={closeFilterModal}>
                 <div className="modal" onClick={(event) => event.stopPropagation()}>
                   <div className="modal-header">
-                    <h3>Select measurements to display</h3>
+                    <h3>Select measurements to display (global)</h3>
                     <button type="button" className="icon-button" onClick={closeFilterModal}>
                       ×
                     </button>
@@ -338,7 +316,7 @@ export default function App() {
                   </div>
 
                   <div className="modal-actions">
-                    <button type="button" onClick={() => setDraftSelection(activeFileTsNames)}>
+                    <button type="button" onClick={() => setDraftSelection(allTsNames)}>
                       All On
                     </button>
                     <button type="button" onClick={() => setDraftSelection([])}>
