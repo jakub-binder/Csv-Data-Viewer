@@ -8,6 +8,9 @@ A minimal Vite + React + TypeScript web app for loading and inspecting semicolon
 - Keep parsed files in memory and switch active file from a left-side filename list.
 - Show selected file metadata (`serialNumber`, `result`, `stationId`, `date`, `time`).
 - Show parser warnings (if present).
+- Right-panel tabs:
+  - **File view**: existing metadata/warnings + numeric tests table and global measurement filter modal.
+  - **Compare**: line chart comparing one selected `TsName` across all loaded files (value plus optional LSL/USL limit series).
 - Show a numeric tests table for rows where `value != null` with columns:
   - `TsName`
   - `Value`
@@ -28,14 +31,13 @@ This avoids Node-only globals like `Buffer` in the browser app while keeping Nod
 npm install
 ```
 
+## Run dev server
+```bash
+npm run dev
+```
+Then open the URL printed by Vite (typically `http://localhost:5173`).
+
 ## Run tests
 ```bash
 npm test
 ```
-
-## Run app
-```bash
-npm run dev
-```
-
-Then open the URL printed by Vite (typically `http://localhost:5173`).

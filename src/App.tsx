@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import type { ParsedCsvFile, TestRow } from './lib/parser/normalize';
 import { parseCsvTextBrowser } from './lib/parser/parseCsvBrowser';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+
+type MainTab = 'file-view' | 'compare';
 
 interface LoadedCsvFile {
   id: string;
@@ -43,9 +58,22 @@ function collectUniqueNumericTsNames(files: LoadedCsvFile[]): Set<string> {
   );
 }
 
+function collectUniqueTsNames(files: LoadedCsvFile[]): Set<string> {
+  return new Set(
+    files.flatMap((file) =>
+      file.parsed.tests.map(getNormalizedTsName).filter((tsName) => tsName.length > 0)
+    )
+  );
+}
+
+function truncateFileLabel(label: string): string {
+  return label.length > 24 ? `${label.slice(0, 24)}…` : label;
+}
+
 export default function App() {
   const [files, setFiles] = useState<LoadedCsvFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<MainTab>('file-view');
   const [showDetails, setShowDetails] = useState(false);
   const [selectedTsNames, setSelectedTsNames] = useState<string[]>([]);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -59,6 +87,8 @@ export default function App() {
 
   const allTsNames = useMemo(() => Array.from(collectUniqueNumericTsNames(files)), [files]);
   const allTsNamesSet = useMemo(() => new Set(allTsNames), [allTsNames]);
+  const compareTsNames = useMemo(() => Array.from(collectUniqueTsNames(files)), [files]);
+  const [selectedCompareTsName, setSelectedCompareTsName] = useState('');
 
   const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -158,6 +188,117 @@ export default function App() {
 
   const draftSelectionSet = new Set(draftSelection);
 
+  useEffect(() => {
+    setSelectedCompareTsName((previous) => {
+      if (compareTsNames.includes(previous)) {
+        return previous;
+      }
+
+      return compareTsNames[0] ?? '';
+    });
+  }, [compareTsNames]);
+
+  const compareSeries = useMemo(() => {
+    if (selectedCompareTsName.length === 0) {
+      return {
+        labels: files.map((file) => truncateFileLabel(file.fileName)),
+        fullLabels: files.map((file) => file.fileName),
+        valueSeries: [] as Array<number | null>,
+        lowerLimitSeries: [] as Array<number | null>,
+        upperLimitSeries: [] as Array<number | null>
+      };
+    }
+
+    const valueSeries: Array<number | null> = [];
+    const lowerLimitSeries: Array<number | null> = [];
+    const upperLimitSeries: Array<number | null> = [];
+
+    for (const file of files) {
+      const matchingTest = file.parsed.tests.find(
+        (test) => getNormalizedTsName(test) === selectedCompareTsName
+      );
+
+      valueSeries.push(matchingTest?.value ?? null);
+      lowerLimitSeries.push(matchingTest?.lowerLimit ?? null);
+      upperLimitSeries.push(matchingTest?.upperLimit ?? null);
+    }
+
+    return {
+      labels: files.map((file) => truncateFileLabel(file.fileName)),
+      fullLabels: files.map((file) => file.fileName),
+      valueSeries,
+      lowerLimitSeries,
+      upperLimitSeries
+    };
+  }, [files, selectedCompareTsName]);
+
+  const compareChartData = useMemo(
+    () => ({
+      labels: compareSeries.labels,
+      datasets: [
+        {
+          label: 'Value',
+          data: compareSeries.valueSeries,
+          borderColor: '#1976d2',
+          backgroundColor: '#1976d2',
+          spanGaps: false,
+          tension: 0.15
+        },
+        {
+          label: 'LSL',
+          data: compareSeries.lowerLimitSeries,
+          borderColor: '#f57c00',
+          backgroundColor: '#f57c00',
+          borderDash: [6, 4],
+          spanGaps: false,
+          tension: 0
+        },
+        {
+          label: 'USL',
+          data: compareSeries.upperLimitSeries,
+          borderColor: '#388e3c',
+          backgroundColor: '#388e3c',
+          borderDash: [6, 4],
+          spanGaps: false,
+          tension: 0
+        }
+      ]
+    }),
+    [compareSeries]
+  );
+
+  const compareChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Loaded CSV files'
+          }
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Value'
+          }
+        }
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            title: (context: Array<{ dataIndex: number }>) => {
+              const index = context[0]?.dataIndex ?? 0;
+              return compareSeries.fullLabels[index] ?? '';
+            }
+          }
+        }
+      }
+    }),
+    [compareSeries.fullLabels]
+  );
+
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -184,7 +325,61 @@ export default function App() {
       </aside>
 
       <main className="main">
-        {activeFile === null ? (
+        <div className="tabs" role="tablist" aria-label="Main view tabs">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'file-view'}
+            className={activeTab === 'file-view' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('file-view')}
+          >
+            File view
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'compare'}
+            className={activeTab === 'compare' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('compare')}
+          >
+            Compare
+          </button>
+        </div>
+
+        {activeTab === 'compare' && (
+          <section className="compare-panel">
+            {files.length === 0 ? (
+              <p>Load CSV files to compare measurements across files.</p>
+            ) : (
+              <>
+                <label className="compare-select">
+                  <span>Measurement (TsName)</span>
+                  <select
+                    value={selectedCompareTsName}
+                    onChange={(event) => setSelectedCompareTsName(event.target.value)}
+                  >
+                    {compareTsNames.map((tsName) => (
+                      <option key={tsName} value={tsName} title={tsName}>
+                        {truncateName(tsName)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {selectedCompareTsName.length === 0 ? (
+                  <p>No measurements available.</p>
+                ) : (
+                  <div className="chart-wrapper">
+                    <Line data={compareChartData} options={compareChartOptions} />
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {activeTab === 'file-view' &&
+          (activeFile === null ? (
           <p>Load one or more CSV files to view parsed data.</p>
         ) : (
           <>
@@ -333,7 +528,7 @@ export default function App() {
               </div>
             )}
           </>
-        )}
+        ))}
       </main>
     </div>
   );
