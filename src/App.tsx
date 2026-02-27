@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import type { ParsedCsvFile, TestRow } from './lib/parser/normalize';
 import { parseCsvTextBrowser } from './lib/parser/parseCsvBrowser';
 
@@ -20,6 +20,10 @@ function formatInLimit(inLimit: boolean | null): string {
   return inLimit ? 'Pass' : 'Fail';
 }
 
+function getNormalizedTsName(test: TestRow): string {
+  return test.tsName?.trim() ?? '';
+}
+
 function truncateName(name: string | undefined): string {
   if (!name) {
     return '-';
@@ -28,15 +32,33 @@ function truncateName(name: string | undefined): string {
   return name.length > 30 ? `${name.slice(0, 30)}…` : name;
 }
 
+function collectUniqueNumericTsNames(files: LoadedCsvFile[]): Set<string> {
+  return new Set(
+    files.flatMap((file) =>
+      file.parsed.tests
+        .filter(isNumericValueTest)
+        .map(getNormalizedTsName)
+        .filter((tsName) => tsName.length > 0)
+    )
+  );
+}
+
 export default function App() {
   const [files, setFiles] = useState<LoadedCsvFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [selectedTsNames, setSelectedTsNames] = useState<string[]>([]);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filterSearch, setFilterSearch] = useState('');
+  const [draftSelection, setDraftSelection] = useState<string[]>([]);
 
   const activeFile = useMemo(
     () => files.find((file) => file.id === activeFileId) ?? null,
     [files, activeFileId]
   );
+
+  const allTsNames = useMemo(() => Array.from(collectUniqueNumericTsNames(files)), [files]);
+  const allTsNamesSet = useMemo(() => new Set(allTsNames), [allTsNames]);
 
   const handleFilesSelected = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -55,6 +77,9 @@ export default function App() {
       })
     );
 
+    const knownTsNames = collectUniqueNumericTsNames(files);
+    const newTsNames = collectUniqueNumericTsNames(parsedFiles);
+
     setFiles((previous) => {
       const next = [...previous, ...parsedFiles];
       if (activeFileId === null && next.length > 0) {
@@ -63,10 +88,75 @@ export default function App() {
       return next;
     });
 
+    setSelectedTsNames((previous) => {
+      const next = new Set(previous);
+
+      for (const tsName of newTsNames) {
+        if (!knownTsNames.has(tsName)) {
+          next.add(tsName);
+        }
+      }
+
+      return Array.from(next);
+    });
+
     event.target.value = '';
   };
 
   const numericTests = (activeFile?.parsed.tests ?? []).filter(isNumericValueTest);
+  const selectedTsNameSet = useMemo(() => new Set(selectedTsNames), [selectedTsNames]);
+
+  const filteredNumericTests = useMemo(
+    () =>
+      numericTests.filter((test) => {
+        const tsName = getNormalizedTsName(test);
+        return tsName.length > 0 && selectedTsNameSet.has(tsName);
+      }),
+    [numericTests, selectedTsNameSet]
+  );
+
+  const visibleTsNames = useMemo(() => {
+    const normalizedSearch = filterSearch.trim().toLowerCase();
+    if (normalizedSearch.length === 0) {
+      return allTsNames;
+    }
+
+    return allTsNames.filter((tsName) => tsName.toLowerCase().includes(normalizedSearch));
+  }, [allTsNames, filterSearch]);
+
+  useEffect(() => {
+    if (!isFilterModalOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsFilterModalOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isFilterModalOpen]);
+
+  const openFilterModal = () => {
+    setDraftSelection(selectedTsNames.filter((tsName) => allTsNamesSet.has(tsName)));
+    setFilterSearch('');
+    setIsFilterModalOpen(true);
+  };
+
+  const applyDraftSelection = () => {
+    setSelectedTsNames(draftSelection.filter((tsName) => allTsNamesSet.has(tsName)));
+    setIsFilterModalOpen(false);
+  };
+
+  const closeFilterModal = () => {
+    setIsFilterModalOpen(false);
+  };
+
+  const draftSelectionSet = new Set(draftSelection);
 
   return (
     <div className="layout">
@@ -146,7 +236,12 @@ export default function App() {
             )}
 
             <section>
-              <h2>Numeric tests (value != null)</h2>
+              <div className="section-header">
+                <h2>Numeric tests (value != null)</h2>
+                <button type="button" onClick={openFilterModal}>
+                  Filter measurements (global)…
+                </button>
+              </div>
               <table>
                 <thead>
                   <tr>
@@ -159,12 +254,12 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {numericTests.length === 0 ? (
+                  {filteredNumericTests.length === 0 ? (
                     <tr>
                       <td colSpan={6}>No numeric tests found.</td>
                     </tr>
                   ) : (
-                    numericTests.map((test, index) => {
+                    filteredNumericTests.map((test, index) => {
                       const fullName = test.tsName ?? '-';
                       return (
                         <tr key={`${test.tsName ?? 'row'}-${index}`}>
@@ -181,6 +276,62 @@ export default function App() {
                 </tbody>
               </table>
             </section>
+
+            {isFilterModalOpen && (
+              <div className="modal-overlay" onClick={closeFilterModal}>
+                <div className="modal" onClick={(event) => event.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>Select measurements to display (global)</h3>
+                    <button type="button" className="icon-button" onClick={closeFilterModal}>
+                      ×
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Search by TsName"
+                    value={filterSearch}
+                    onChange={(event) => setFilterSearch(event.target.value)}
+                  />
+
+                  <div className="measurement-list">
+                    {visibleTsNames.map((tsName) => (
+                      <label key={tsName} className="measurement-item">
+                        <input
+                          type="checkbox"
+                          checked={draftSelectionSet.has(tsName)}
+                          onChange={(event) => {
+                            setDraftSelection((previous) => {
+                              if (event.target.checked) {
+                                return [...previous, tsName];
+                              }
+
+                              return previous.filter((item) => item !== tsName);
+                            });
+                          }}
+                        />
+                        <span>{tsName}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="modal-actions">
+                    <button type="button" onClick={() => setDraftSelection(allTsNames)}>
+                      All On
+                    </button>
+                    <button type="button" onClick={() => setDraftSelection([])}>
+                      All Off
+                    </button>
+                    <button type="button" onClick={applyDraftSelection}>
+                      Apply
+                    </button>
+                    <button type="button" onClick={closeFilterModal}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
