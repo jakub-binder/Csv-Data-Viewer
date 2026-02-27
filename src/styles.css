@@ -4,17 +4,23 @@
 
 body {
   margin: 0;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
   border-right: 1px solid #ddd;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .file-control {
@@ -26,6 +32,9 @@ body {
   list-style: none;
   margin: 12px 0 0;
   padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
 }
 
 .file-list li + li {
@@ -43,6 +52,8 @@ body {
 
 .main {
   padding: 16px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 
